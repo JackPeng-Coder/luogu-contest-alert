@@ -37,6 +37,9 @@ ENV/
 data/contests.json
 *.log
 
+# User's personal copy for autostart
+*.pyw
+
 # Windows
 Thumbs.db
 ehthumbs.db

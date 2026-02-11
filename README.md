@@ -29,6 +29,15 @@ python main.py
 pythonw main.py
 ```
 
+### 开机自启动设置
+
+1. 复制 `main.py` 并重命名为 `main.pyw`（`.pyw` 后缀表示无控制台窗口运行）
+2. 为 `main.pyw` 创建快捷方式
+3. 按 `Win + R`，输入 `shell:startup` 打开启动文件夹
+4. 将快捷方式放入启动文件夹
+
+这样程序会在开机时自动在后台运行。
+
 ### 停止程序
 
 - 前台运行：按 `Ctrl+C`
