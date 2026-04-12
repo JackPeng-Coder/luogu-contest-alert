@@ -1,31 +1,50 @@
 import requests
 import json
 import re
+import time
 from datetime import datetime
-from config import LUOGU_CONTEST_URL, HEADERS
+from config import LUOGU_CONTEST_URL, HEADERS, logger
 
 
-def fetch_contests():
-    try:
-        response = requests.get(LUOGU_CONTEST_URL, headers=HEADERS, timeout=30)
-        response.raise_for_status()
-        return parse_contests(response.text)
-    except Exception as e:
-        print(f"获取比赛列表失败: {e}")
+class LuoguCrawler:
+    def __init__(self, url=LUOGU_CONTEST_URL, headers=HEADERS):
+        self.url = url
+        self.headers = headers
+        self.session = requests.Session()
+        self.session.headers.update(headers)
+
+    def fetch_contests(self, retries=3, delay=5):
+        """获取比赛列表，支持重试机制"""
+        for i in range(retries):
+            try:
+                response = self.session.get(self.url, timeout=30)
+                response.raise_for_status()
+                return self.parse_contests(response.text)
+            except Exception as e:
+                logger.error(f"获取比赛列表失败 (尝试 {i+1}/{retries}): {e}")
+                if i < retries - 1:
+                    time.sleep(delay)
         return []
 
+    def parse_contests(self, html):
+        """解析 HTML 获取比赛列表数据"""
+        contests = []
 
-def parse_contests(html):
-    contests = []
+        try:
+            # 洛谷新版 HTML 结构：数据存储在 id="lentille-context" 的 script 标签中
+            match = re.search(r'<script id="lentille-context" type="application/json">(.*?)</script>', html)
+            if not match:
+                logger.warning("未找到比赛数据所在的 script 标签")
+                return []
 
-    try:
-        match = re.search(r'window\._feInjection\s*=\s*JSON\.parse\(decodeURIComponent\("([^"]+)"\)\)', html)
-        if match:
-            encoded_data = match.group(1)
-            decoded_data = requests.utils.unquote(encoded_data)
-            data = json.loads(decoded_data)
+            json_data = match.group(1)
+            data = json.loads(json_data)
 
-            contests_data = data.get('currentData', {}).get('contests', {}).get('result', [])
+            # 新版数据路径：data -> contests -> result
+            contests_data = data.get('data', {}).get('contests', {}).get('result', [])
+            if not contests_data:
+                logger.info("未获取到当前比赛数据")
+                return []
 
             for contest in contests_data:
                 contest_id = str(contest.get('id', ''))
@@ -57,9 +76,15 @@ def parse_contests(html):
                     'startTime': start_time,
                     'endTime': end_time
                 })
-        else:
-            print("未找到比赛数据")
-    except Exception as e:
-        print(f"解析比赛数据时出错: {e}")
+        except json.JSONDecodeError as e:
+            logger.error(f"JSON 解析失败: {e}")
+        except Exception as e:
+            logger.error(f"解析比赛数据时出错: {e}")
 
-    return contests
+        return contests
+
+
+# 为了保持向后兼容性，提供一个模块级别的函数
+def fetch_contests():
+    crawler = LuoguCrawler()
+    return crawler.fetch_contests()

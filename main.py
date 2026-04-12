@@ -1,99 +1,128 @@
 import time
 import sys
 import os
+import signal
 from datetime import datetime, timedelta
 
-from crawler import fetch_contests
-from storage import load_contests, save_contests, contests_to_dict
+from config import logger, CHECK_INTERVAL
+from crawler import LuoguCrawler
+from storage import Storage
 from notifier import notify_contest_started
 
 
-def get_next_check_time():
-    """获取下一个检查时间（整点或半点，延迟5秒）"""
-    now = datetime.now()
-    current_minute = now.minute
-    current_second = now.second
+class ContestMonitor:
+    def __init__(self):
+        self.crawler = LuoguCrawler()
+        self.storage = Storage()
+        self.running = True
 
-    if current_minute < 30:
-        target_minute = 30
-    else:
-        target_minute = 0
-        now = now + timedelta(hours=1)
+    def get_next_check_time(self):
+        """获取下一个检查时间（整点或半点，延迟5秒）"""
+        now = datetime.now()
+        current_minute = now.minute
 
-    next_check = now.replace(minute=target_minute, second=5, microsecond=0)
+        if current_minute < 30:
+            target_minute = 30
+        else:
+            target_minute = 0
+            now = now + timedelta(hours=1)
 
-    if target_minute == 0 and current_minute >= 30:
-        pass
+        next_check = now.replace(minute=target_minute, second=5, microsecond=0)
+        return next_check
 
-    return next_check
+    def wait_until_next_check(self):
+        """等待到下一个检查时间点"""
+        next_check = self.get_next_check_time()
+        now = datetime.now()
+        wait_seconds = (next_check - now).total_seconds()
 
+        if wait_seconds > 0:
+            logger.info(f"下次检查时间: {next_check.strftime('%Y-%m-%d %H:%M:%S')}，等待 {int(wait_seconds)} 秒...")
+            
+            # 使用分段睡眠，以便能够响应退出信号
+            end_time = time.time() + wait_seconds
+            while time.time() < end_time and self.running:
+                sleep_time = min(1, end_time - time.time())
+                if sleep_time > 0:
+                    time.sleep(sleep_time)
 
-def wait_until_next_check():
-    """等待到下一个检查时间点"""
-    next_check = get_next_check_time()
-    now = datetime.now()
+    def check_contests(self):
+        """核心检查逻辑"""
+        logger.info("正在从洛谷抓取比赛列表...")
 
-    wait_seconds = (next_check - now).total_seconds()
+        current_contests = self.crawler.fetch_contests()
+        if not current_contests:
+            logger.warning("未获取到比赛数据，跳过本次检查")
+            return
 
-    if wait_seconds > 0:
-        print(f"下次检查时间: {next_check.strftime('%Y-%m-%d %H:%M:%S')}")
-        print(f"等待 {int(wait_seconds)} 秒...")
-        time.sleep(wait_seconds)
+        current_dict = self.storage.contests_to_dict(current_contests)
+        saved_dict = self.storage.load_contests()
 
+        started_contests = []
 
-def check_contests():
-    print(f"\n[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] 正在检查比赛列表...")
+        for contest_id, contest in current_dict.items():
+            current_status = contest.get('status', '')
 
-    current_contests = fetch_contests()
-    if not current_contests:
-        print("未获取到比赛数据，跳过本次检查")
-        return
+            if contest_id in saved_dict:
+                saved_status = saved_dict[contest_id].get('status', '')
 
-    current_dict = contests_to_dict(current_contests)
-    saved_dict = load_contests()
+                # 如果之前是 '未开始'，现在是 '进行中'，则触发提醒
+                if '未开始' in saved_status and '进行中' in current_status:
+                    started_contests.append(contest)
+                    logger.info(f"🚩 比赛已开始: {contest['title']}")
 
-    started_contests = []
+        # 发送通知
+        for contest in started_contests:
+            try:
+                notify_contest_started(contest)
+            except Exception as e:
+                logger.error(f"发送通知失败: {e}")
 
-    for contest_id, contest in current_dict.items():
-        current_status = contest.get('status', '')
+        # 保存当前数据
+        self.storage.save_contests(current_dict)
+        logger.info(f"检查完成: 共 {len(current_contests)} 个比赛，{len(started_contests)} 个新开始")
 
-        if contest_id in saved_dict:
-            saved_status = saved_dict[contest_id].get('status', '')
+    def stop(self, signum=None, frame=None):
+        """停止运行"""
+        logger.info("正在停止监控程序...")
+        self.running = False
 
-            if '未开始' in saved_status and '进行中' in current_status:
-                started_contests.append(contest)
-                print(f"检测到比赛开始: {contest['title']}")
+    def run(self):
+        """启动监控程序"""
+        logger.info("洛谷比赛监控程序已启动")
+        logger.info(f"检查频率: 整点和半点，或每 {CHECK_INTERVAL} 秒")
+        logger.info("-" * 50)
 
-    for contest in started_contests:
-        notify_contest_started(contest)
+        # 首次启动立即检查
+        self.check_contests()
 
-    save_contests(current_dict)
-
-    print(f"本次检查完成，共 {len(current_contests)} 个比赛，{len(started_contests)} 个新开始的比赛")
+        while self.running:
+            self.wait_until_next_check()
+            if self.running:
+                self.check_contests()
 
 
 def main():
-    print("洛谷比赛监控程序已启动")
-    print("检查时间点: 每个整点和半点（延迟5秒）")
-    print("-" * 50)
+    # 标题设置 (仅限 Windows)
+    if sys.platform == 'win32':
+        import ctypes
+        try:
+            ctypes.windll.kernel32.SetConsoleTitleW("洛谷比赛监控")
+        except:
+            pass
 
-    check_contests()
+    monitor = ContestMonitor()
 
-    while True:
-        wait_until_next_check()
-        check_contests()
+    # 信号处理
+    signal.signal(signal.SIGINT, monitor.stop)
+    signal.signal(signal.SIGTERM, monitor.stop)
+
+    try:
+        monitor.run()
+    except Exception as e:
+        logger.critical(f"程序遇到致命错误: {e}", exc_info=True)
+        sys.exit(1)
 
 
 if __name__ == '__main__':
-    if sys.platform == 'win32':
-        import ctypes
-        ctypes.windll.kernel32.SetConsoleTitleW("洛谷比赛监控")
-
-    try:
-        main()
-    except KeyboardInterrupt:
-        print("\n程序已停止")
-        sys.exit(0)
-    except Exception as e:
-        print(f"程序出错: {e}")
-        sys.exit(1)
+    main()
