@@ -35,7 +35,10 @@ ENV/
 
 # Project specific
 data/contests.json
+data/settings.json
 *.log
+.sisyphus/
+_create_startup.vbs
 
 # User's personal copy for autostart
 *.pyw

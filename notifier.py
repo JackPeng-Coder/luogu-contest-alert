@@ -131,3 +131,21 @@ def notify_contest_started(contest):
     contest_id = contest.get('id')
     
     show_notification(title, message, contest_link, contest_id)
+
+
+def notify_contest_ended(contest):
+    """比赛结束提醒通知"""
+    title = "洛谷比赛结束提醒"
+    contest_name = contest.get('title', '未知比赛')
+    message = f"比赛名称：{contest_name}\n\n"
+    
+    if contest.get('time'):
+        message += f"比赛时间：{contest['time']}\n"
+    message += f"\n状态：✅ 已结束"
+
+    contest_link = contest.get('link', '')
+    contest_id = contest.get('id')
+    # 使用 "ended_" 前缀区分 ID，防止与开始通知冲突
+    ended_id = f"ended_{contest_id}" if contest_id else None
+    
+    show_notification(title, message, contest_link, ended_id)
