@@ -314,7 +314,7 @@ class SettingsWindow(QMainWindow):
         self._minimize_switch = ToggleSwitch()
         self._auto_start_switch = ToggleSwitch()
 
-        general_card.add_row("启动时弹出启动提示", self._notify_on_startup_switch)
+        general_card.add_row("启动时消息提醒", self._notify_on_startup_switch)
         general_card.add_row("启动时最小化到系统托盘", self._minimize_switch)
         general_card.add_row("开机自动启动", self._auto_start_switch)
 
@@ -433,7 +433,8 @@ class SettingsWindow(QMainWindow):
             )
 
             if self._auto_start_switch.is_checked():
-                cmd = f'"{sys.executable}" "{os.path.join(BASE_DIR, "main.py")}"'
+                pythonw_path = sys.executable.replace('python.exe', 'pythonw.exe')
+                cmd = f'"{pythonw_path}" "{os.path.join(BASE_DIR, "main.py")}"'
                 winreg.SetValueEx(key, "LuoguContestAlert", 0, winreg.REG_SZ, cmd)
                 winreg.CloseKey(key)
                 logger.info(f"已设置开机自启动: {cmd}")
@@ -551,7 +552,7 @@ def _build_tray_menu(menu, settings):
     menu.addSeparator()
 
     # ── 常规开关 ──
-    startup_act = menu.addAction("启动时弹出启动提示")
+    startup_act = menu.addAction("启动时消息提醒")
     startup_act.setCheckable(True)
     startup_act.setChecked(settings.get("notify_on_startup", True))
     startup_act.triggered.connect(lambda checked: _toggle_setting("notify_on_startup", checked))
