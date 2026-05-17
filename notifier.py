@@ -125,7 +125,7 @@ def notify_contest_started(contest):
     
     if contest.get('time'):
         message += f"比赛时间：{contest['time']}\n"
-    message += f"\n状态：🔴 进行中"
+    message += f"\n状态：🔵 进行中"
 
     contest_link = contest.get('link', '')
     contest_id = contest.get('id')
@@ -141,7 +141,7 @@ def notify_contest_ended(contest):
     
     if contest.get('time'):
         message += f"比赛时间：{contest['time']}\n"
-    message += f"\n状态：✅ 已结束"
+    message += f"\n状态：🔴 已结束"
 
     contest_link = contest.get('link', '')
     contest_id = contest.get('id')

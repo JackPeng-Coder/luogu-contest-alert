@@ -104,7 +104,7 @@ class ContestMonitor:
                 msg = f"比赛名称：{name}"
                 if time_str:
                     msg += f"\n比赛时间：{time_str}"
-                msg += "\n状态：🔴 进行中"
+                msg += "\n状态：🔵 进行中"
                 if popup_enabled:
                     try:
                         notify_contest_started(contest)
@@ -119,7 +119,7 @@ class ContestMonitor:
                 msg = f"比赛名称：{name}"
                 if time_str:
                     msg += f"\n比赛时间：{time_str}"
-                msg += "\n状态：✅ 已结束"
+                msg += "\n状态：🔴 已结束"
                 if popup_enabled:
                     try:
                         notify_contest_ended(contest)
