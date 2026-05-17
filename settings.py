@@ -7,6 +7,7 @@ DEFAULT_SETTINGS = {
     'message_enabled': True,
     'notify_on_start': True,
     'notify_on_end': True,
+    'notify_on_startup': True,
     'minimize_to_tray': True,
     'auto_start': False
 }

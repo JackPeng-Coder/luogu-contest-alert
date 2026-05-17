@@ -310,9 +310,11 @@ class SettingsWindow(QMainWindow):
 
         # ── 常规设置卡片 ──
         general_card = SettingsCard("常规设置")
+        self._notify_on_startup_switch = ToggleSwitch()
         self._minimize_switch = ToggleSwitch()
         self._auto_start_switch = ToggleSwitch()
 
+        general_card.add_row("启动时弹出启动提示", self._notify_on_startup_switch)
         general_card.add_row("启动时最小化到系统托盘", self._minimize_switch)
         general_card.add_row("开机自动启动", self._auto_start_switch)
 
@@ -396,6 +398,7 @@ class SettingsWindow(QMainWindow):
         self._msg_switch.set_checked(s.get('message_enabled', True), animated=False)
         self._notify_on_start_switch.set_checked(s.get('notify_on_start', True), animated=False)
         self._notify_on_end_switch.set_checked(s.get('notify_on_end', True), animated=False)
+        self._notify_on_startup_switch.set_checked(s.get('notify_on_startup', True), animated=False)
         self._minimize_switch.set_checked(s.get('minimize_to_tray', True), animated=False)
         self._auto_start_switch.set_checked(s.get('auto_start', False), animated=False)
 
@@ -406,6 +409,7 @@ class SettingsWindow(QMainWindow):
             'message_enabled': self._msg_switch.is_checked(),
             'notify_on_start': self._notify_on_start_switch.is_checked(),
             'notify_on_end': self._notify_on_end_switch.is_checked(),
+            'notify_on_startup': self._notify_on_startup_switch.is_checked(),
             'minimize_to_tray': self._minimize_switch.is_checked(),
             'auto_start': self._auto_start_switch.is_checked(),
         })
@@ -500,7 +504,7 @@ def _setup_tray(settings, monitor):
     _tray.show()
 
     # 首次启动提示
-    if settings.get('minimize_to_tray', True):
+    if settings.get('notify_on_startup', True) and settings.get('minimize_to_tray', True):
         _tray.showMessage(
             "洛谷比赛监控",
             "程序已最小化到系统托盘，双击此图标打开设置界面",
@@ -547,6 +551,11 @@ def _build_tray_menu(menu, settings):
     menu.addSeparator()
 
     # ── 常规开关 ──
+    startup_act = menu.addAction("启动时弹出启动提示")
+    startup_act.setCheckable(True)
+    startup_act.setChecked(settings.get("notify_on_startup", True))
+    startup_act.triggered.connect(lambda checked: _toggle_setting("notify_on_startup", checked))
+
     tray_act = menu.addAction("启动时最小化到托盘")
     tray_act.setCheckable(True)
     tray_act.setChecked(settings.get("minimize_to_tray", True))
