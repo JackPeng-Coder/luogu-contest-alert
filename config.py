@@ -13,6 +13,8 @@ os.makedirs(LOG_DIR, exist_ok=True)
 
 LUOGU_CONTEST_URL = 'https://www.luogu.com.cn/contest/list'
 
+# 动态调度的回退轮询间隔（秒）：当没有临近的比赛触发点时使用，
+# 同时也作为调度等待时间的上限，避免错过期间新上线的比赛
 CHECK_INTERVAL = 600
 
 HEADERS = {

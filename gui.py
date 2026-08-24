@@ -4,7 +4,7 @@ import os
 from PySide6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QLabel, QPushButton, QFrame, QSystemTrayIcon, QMenu,
-    QMessageBox, QSizePolicy, QScrollArea
+    QMessageBox, QSizePolicy, QScrollArea, QSpinBox
 )
 from PySide6.QtGui import QIcon, QFont, QPainter, QColor, QPen, QBrush, QPixmap
 from PySide6.QtCore import Qt, QTimer, Signal, Property, QEasingCurve, QPropertyAnimation
@@ -300,8 +300,15 @@ class SettingsWindow(QMainWindow):
         notify_card.add_row("比赛开始时弹出通知", self._notify_on_start_switch)
         notify_card.add_row("比赛结束时弹出通知", self._notify_on_end_switch)
 
-        # 附注说明
-        note_label = QLabel("💡 至少开启一种提醒方式才能收到通知")
+        # 提前提醒数字输入框（开始/结束分开设置，按钮尺寸）
+        self._advance_start_spin = self._build_advance_spinbox()
+        self._advance_end_spin = self._build_advance_spinbox()
+        notify_card.add_row("开始前提醒", self._advance_start_spin)
+        notify_card.add_row("结束前提醒", self._advance_end_spin)
+
+        # 附注说明（开启自动换行，避免撑宽内容导致横向滚动条）
+        note_label = QLabel("💡 至少开启一种提醒方式才能收到通知；提前提醒仅在对应「开始时/结束时提醒」开启时生效")
+        note_label.setWordWrap(True)
         note_label.setFont(QFont('Microsoft YaHei UI', 9))
         note_label.setStyleSheet("color: #888; padding-left: 2px;")
         notify_card.add_widget(note_label)
@@ -367,11 +374,11 @@ class SettingsWindow(QMainWindow):
         apply_btn.setCursor(Qt.PointingHandCursor)
         apply_btn.setStyleSheet("""
             QPushButton {
-                background: #4a90d9; color: white; border: none;
+                background: #e8ecf0; color: #333; border: none;
                 border-radius: 8px; font-size: 13px; font-weight: bold;
             }
-            QPushButton:hover { background: #357abd; }
-            QPushButton:pressed { background: #2a6cb5; }
+            QPushButton:hover { background: #d0d5dd; }
+            QPushButton:pressed { background: #b0b5bd; }
         """)
         apply_btn.clicked.connect(self._save_settings)
         btn_layout.addWidget(apply_btn)
@@ -381,16 +388,47 @@ class SettingsWindow(QMainWindow):
         ok_btn.setCursor(Qt.PointingHandCursor)
         ok_btn.setStyleSheet("""
             QPushButton {
-                background: #e8ecf0; color: #333; border: none;
+                background: #4a90d9; color: white; border: none;
                 border-radius: 8px; font-size: 13px; font-weight: bold;
             }
-            QPushButton:hover { background: #d0d5dd; }
-            QPushButton:pressed { background: #b0b5bd; }
+            QPushButton:hover { background: #357abd; }
+            QPushButton:pressed { background: #2a6cb5; }
         """)
         ok_btn.clicked.connect(self._save_and_close)
         btn_layout.addWidget(ok_btn)
 
         main_layout.addWidget(btn_bar)
+
+    def _build_advance_spinbox(self):
+        """构建提前量数字输入框（按钮尺寸，0~1440 分钟，0=不提醒）"""
+        spin = QSpinBox()
+        spin.setRange(0, 1440)
+        spin.setSingleStep(5)
+        spin.setSuffix(" 分钟")
+        spin.setSpecialValueText("0 = 不提醒")
+        # 按钮大小：紧凑宽度（容纳「0 = 不提醒」）、与按钮一致的高度
+        spin.setFixedSize(132, 32)
+        spin.setCursor(Qt.PointingHandCursor)
+        spin.setAlignment(Qt.AlignCenter)
+        spin.setStyleSheet("""
+            QSpinBox {
+                background: #ffffff; border: 1px solid #d5dae0;
+                border-radius: 8px; padding: 0 6px;
+                font-size: 12px; color: #2d3436;
+                selection-background-color: #4a90d9;
+            }
+            QSpinBox:hover { border-color: #4a90d9; }
+            QSpinBox:focus { border-color: #4a90d9; }
+            QSpinBox::up-button, QSpinBox::down-button {
+                width: 16px; border: none;
+                background: #f0f2f5; border-radius: 5px;
+                margin: 2px;
+            }
+            QSpinBox::up-button:hover, QSpinBox::down-button:hover {
+                background: #dbe4ee;
+            }
+        """)
+        return spin
 
     def _load_settings(self):
         s = self._settings
@@ -401,6 +439,8 @@ class SettingsWindow(QMainWindow):
         self._notify_on_startup_switch.set_checked(s.get('notify_on_startup', True), animated=False)
         self._minimize_switch.set_checked(s.get('minimize_to_tray', True), animated=False)
         self._auto_start_switch.set_checked(s.get('auto_start', False), animated=False)
+        self._advance_start_spin.setValue(int(s.get('advance_start_minutes', 0)))
+        self._advance_end_spin.setValue(int(s.get('advance_end_minutes', 0)))
 
     def _save_settings(self):
         s = self._settings
@@ -412,6 +452,8 @@ class SettingsWindow(QMainWindow):
             'notify_on_startup': self._notify_on_startup_switch.is_checked(),
             'minimize_to_tray': self._minimize_switch.is_checked(),
             'auto_start': self._auto_start_switch.is_checked(),
+            'advance_start_minutes': self._advance_start_spin.value(),
+            'advance_end_minutes': self._advance_end_spin.value(),
         })
 
         # 处理开机自启动

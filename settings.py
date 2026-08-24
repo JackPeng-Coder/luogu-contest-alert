@@ -2,6 +2,9 @@ import json
 import os
 from config import DATA_DIR, logger
 
+# 提前提醒可选提前量（分钟），0 表示不提前
+ADVANCE_CHOICES = (0, 5, 15, 30, 60)
+
 DEFAULT_SETTINGS = {
     'popup_enabled': True,
     'message_enabled': True,
@@ -9,7 +12,10 @@ DEFAULT_SETTINGS = {
     'notify_on_end': True,
     'notify_on_startup': True,
     'minimize_to_tray': True,
-    'auto_start': False
+    'auto_start': False,
+    # 比赛开始/结束前提前提醒（分钟，取值来自 ADVANCE_CHOICES）
+    'advance_start_minutes': 0,
+    'advance_end_minutes': 0,
 }
 
 
